@@ -14,7 +14,6 @@ import (
 
 	"github.com/soypat/cyw43439"
 	"github.com/soypat/cyw43439/examples/cywnet"
-	"github.com/soypat/lneto/ipv4"
 )
 
 const (
@@ -65,7 +64,7 @@ func main() {
 	if err != nil {
 		panic("get DHCP lease: " + err.Error())
 	}
-	logger.Info("connected", slog.String("ip", ipv4.String(lease.AssignedAddr4)))
+	logger.Info("connected", slog.String("ip", lease.AssignedAddr.String()))
 
 	// Resolve an NTP host using the DNS servers supplied by DHCP, then ask it
 	// for the time. The retrying wrapper handles a few transient Wi-Fi hiccups.
