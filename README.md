@@ -1,8 +1,37 @@
 # picopass
 
-A tiny Go/TinyGo program for a Raspberry Pi Pico 2 W. It joins Wi-Fi, acquires
-an address with DHCP, resolves `time.cloudflare.com`, performs an NTP request,
-sets TinyGo's clock, then prints UTC time over USB serial once a minute.
+`picopass` is a toy project that turns a Raspberry Pi Pico 2 W into a physical
+TOTP keyboard. It gets time over Wi-Fi and NTP, then presents itself over USB
+as both a serial port and an HID keyboard. Three physical buttons type the
+current UTC time, a stored password, or a freshly generated TOTP code.
+
+## Not a secure authenticator
+
+**This is an experiment, not a security product. Do not use it for real
+accounts or in a secure environment.**
+
+It intentionally keeps Wi-Fi credentials, a system password, and the TOTP seed
+as plaintext in the committed `secrets.go` file. It has no encryption, secure
+element, user verification, tamper resistance, access control, lockout, secure
+updates, or security review. Anyone who can access the device, its firmware,
+the repository, or the computer currently receiving the HID input may be able
+to use or copy those credentials. HID typing can also go to the wrong focused
+application. Use only disposable test credentials you are comfortable exposing.
+
+For anything that actually needs protection, you are far better off using a
+purpose-built, security-reviewed hardware authenticator such as a
+[YubiKey](https://www.yubico.com/products/yubikey-5-overview/) or a similar
+FIDO2/WebAuthn security key.
+
+## What it does
+
+- Connects to Wi-Fi, obtains an address with DHCP, resolves
+  `time.cloudflare.com`, and sets TinyGo's clock with NTP.
+- Keeps its onboard LED blinking until the time sync succeeds, then leaves it
+  solid.
+- Provides a USB serial log and USB HID keyboard at the same time.
+- Types the configured password or a six-digit TOTP code when its corresponding
+  button is pressed.
 
 ## Set Wi-Fi credentials and password
 
