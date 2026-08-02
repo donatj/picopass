@@ -38,8 +38,8 @@ FIDO2/WebAuthn security key.
 Edit `secrets.go` and fill in the SSID and password for a 2.4 GHz WPA2 network,
 the password to type, and `totpSeed`. `totpSeed` is the Base32 secret supplied
 by the service for authenticator apps, not the QR-code image. This project
-intentionally keeps `secrets.go` under version control; `secrets.go.example`
-retains the placeholders. An empty Wi-Fi password selects an open network.
+intentionally keeps `secrets.go` under version control and starts it with
+placeholders to replace. An empty Wi-Fi password selects an open network.
 
 ## USB keyboard
 
