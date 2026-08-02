@@ -1,0 +1,37 @@
+name: TinyGo build
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.25.x'
+          cache: true
+
+      - name: Install TinyGo
+        run: |
+          curl --fail --location --silent --show-error \
+            --output tinygo.deb \
+            https://github.com/tinygo-org/tinygo/releases/download/v0.41.1/tinygo_0.41.1_amd64.deb
+          sudo dpkg --install tinygo.deb
+          tinygo version
+
+      - name: Build Pico 2 W firmware
+        run: |
+          tinygo build \
+            -target=pico2-w \
+            -scheduler=tasks \
+            -stack-size=8kb \
+            -o picopass.uf2 \
+            .
