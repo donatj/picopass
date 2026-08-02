@@ -6,18 +6,20 @@ sets TinyGo's clock, then prints UTC time over USB serial once a minute.
 
 ## Set Wi-Fi credentials and password
 
-Edit `secrets.go` and fill in the SSID and password for a 2.4 GHz WPA2 network
-and the password to type. This project intentionally keeps `secrets.go` under
-version control; `secrets.go.example` retains the placeholders. An empty Wi-Fi
-password selects an open network.
+Edit `secrets.go` and fill in the SSID and password for a 2.4 GHz WPA2 network,
+the password to type, and `totpSeed`. `totpSeed` is the Base32 secret supplied
+by the service for authenticator apps, not the QR-code image. This project
+intentionally keeps `secrets.go` under version control; `secrets.go.example`
+retains the placeholders. An empty Wi-Fi password selects an open network.
 
 ## USB keyboard
 
 The USB connection now appears as both its normal serial port and a standard
 HID keyboard; no host driver is required. After NTP synchronization, the time
 button types the current UTC time plus Return, while the password button types
-`systemPassword` exactly as stored, without Return. The password itself is
-never written to the serial log.
+`systemPassword` exactly as stored, without Return. The TOTP button generates
+and types the current six-digit, 30-second code from `totpSeed`, also without
+Return. The password, seed, and code are never written to the serial log.
 
 The onboard LED blinks while the program is connecting and getting time, then
 stays solid once NTP synchronization succeeds.
@@ -31,11 +33,12 @@ momentary pushbutton to a shared GND rail, then connect the other legs to:
 physical pin 18: GND   ── shared ground rail
 physical pin 19: GP14  ── time button
 physical pin 20: GP15  ── system-password button
+physical pin 21: GP16  ── TOTP button
 ```
 
-No external resistors are needed: the program enables GP14 and GP15's internal
-pull-ups. Do not connect either button to 3.3 V. This uses the host's keyboard
-layout; a US layout is safest if the password includes punctuation.
+No external resistors are needed: the program enables GP14, GP15, and GP16's
+internal pull-ups. Do not connect any button to 3.3 V. This uses the host's
+keyboard layout; a US layout is safest if the password includes punctuation.
 
 For future input actions, call `typeText("your message\\n")` from the program.
 It sends ordinary text with a small pacing delay, so longer messages are not

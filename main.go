@@ -6,10 +6,16 @@ package main
 //   tinygo flash -target=pico2-w -scheduler=tasks -stack-size=8kb -monitor .
 
 import (
+	"crypto/hmac"
+	"crypto/sha1"
+	"encoding/base32"
+	"encoding/binary"
+	"fmt"
 	"log/slog"
 	"machine"
 	"machine/usb/hid/keyboard"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/soypat/cyw43439"
@@ -32,6 +38,7 @@ var hidKeyboard = keyboard.Port()
 var (
 	timeButton     = machine.GP14 // physical pin 19
 	passwordButton = machine.GP15 // physical pin 20
+	totpButton     = machine.GP16 // physical pin 21
 )
 
 func main() {
@@ -40,6 +47,7 @@ func main() {
 	}))
 	timeButton.Configure(machine.PinConfig{Mode: machine.PinInputPullup})
 	passwordButton.Configure(machine.PinConfig{Mode: machine.PinInputPullup})
+	totpButton.Configure(machine.PinConfig{Mode: machine.PinInputPullup})
 
 	// Give `tinygo monitor` time to attach before emitting diagnostics.
 	time.Sleep(2 * time.Second)
@@ -151,6 +159,34 @@ func typeText(text string) error {
 	return nil
 }
 
+// generateTOTP creates a conventional six-digit, 30-second TOTP value from a
+// Base32 seed. Spaces and hyphens in the seed are ignored for convenience.
+func generateTOTP(seed string, now time.Time) (string, error) {
+	normalizedSeed := strings.ToUpper(strings.ReplaceAll(strings.ReplaceAll(seed, " ", ""), "-", ""))
+	secret, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(normalizedSeed)
+	if err != nil {
+		return "", fmt.Errorf("decode TOTP seed: %w", err)
+	}
+	if len(secret) == 0 {
+		return "", fmt.Errorf("TOTP seed is empty")
+	}
+
+	counter := uint64(now.UTC().Unix() / 30)
+	var counterBytes [8]byte
+	binary.BigEndian.PutUint64(counterBytes[:], counter)
+
+	mac := hmac.New(sha1.New, secret)
+	_, _ = mac.Write(counterBytes[:]) // hash writes cannot fail
+	digest := mac.Sum(nil)
+	offset := int(digest[len(digest)-1] & 0x0f)
+	code := (uint32(digest[offset])&0x7f)<<24 |
+		uint32(digest[offset+1])<<16 |
+		uint32(digest[offset+2])<<8 |
+		uint32(digest[offset+3])
+
+	return fmt.Sprintf("%06d", code%1000000), nil
+}
+
 func buttonPressed(button machine.Pin) bool {
 	if button.Get() {
 		return false
@@ -186,6 +222,18 @@ func runTypeButtons(logger *slog.Logger) {
 				logger.Error("type HID system password", slog.String("error", err.Error()))
 			}
 			waitForButtonRelease(passwordButton)
+		} else if buttonPressed(totpButton) { // active-low: button connects GP16 to GND
+			// Do not log the seed or the short-lived code, and do not send Enter.
+			code, err := generateTOTP(totpSeed, time.Now())
+			if err != nil {
+				logger.Error("generate TOTP", slog.String("error", err.Error()))
+			} else {
+				logger.Info("typing current TOTP")
+				if err := typeText(code); err != nil {
+					logger.Error("type HID TOTP", slog.String("error", err.Error()))
+				}
+			}
+			waitForButtonRelease(totpButton)
 		}
 
 		now := time.Now()

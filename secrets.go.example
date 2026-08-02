@@ -5,4 +5,5 @@ const (
 	wifiSSID       = "YOUR_WIFI_NAME"
 	wifiPassword   = "YOUR_WIFI_PASSWORD"
 	systemPassword = "YOUR_SYSTEM_PASSWORD"
+	totpSeed       = "YOUR_BASE32_TOTP_SEED"
 )
