@@ -4,36 +4,38 @@ A tiny Go/TinyGo program for a Raspberry Pi Pico 2 W. It joins Wi-Fi, acquires
 an address with DHCP, resolves `time.cloudflare.com`, performs an NTP request,
 sets TinyGo's clock, then prints UTC time over USB serial once a minute.
 
-## Set Wi-Fi credentials
+## Set Wi-Fi credentials and password
 
-Edit `wifi_secrets.go` and fill in the SSID and password for a 2.4 GHz WPA2
-network. That file is ignored by Git so the password is not accidentally
-committed. An empty password selects an open network. If you ever need a fresh
-placeholder, `wifi_secrets.go.example` contains one.
+Edit `secrets.go` and fill in the SSID and password for a 2.4 GHz WPA2 network
+and the password to type. This project intentionally keeps `secrets.go` under
+version control; `secrets.go.example` retains the placeholders. An empty Wi-Fi
+password selects an open network.
 
 ## USB keyboard
 
 The USB connection now appears as both its normal serial port and a standard
-HID keyboard; no host driver is required. After NTP synchronization, each
-button press types the current UTC time into whichever application has keyboard
-focus.
+HID keyboard; no host driver is required. After NTP synchronization, the time
+button types the current UTC time plus Return, while the password button types
+`systemPassword` exactly as stored, without Return. The password itself is
+never written to the serial log.
 
 The onboard LED blinks while the program is connecting and getting time, then
 stays solid once NTP synchronization succeeds.
 
 ### Button wiring
 
-With the USB connector at the top, use a normally-open momentary pushbutton to
-bridge these two adjacent pins on the left-side header:
+With the USB connector at the top, connect one leg of each normally-open
+momentary pushbutton to a shared GND rail, then connect the other legs to:
 
 ```text
-physical pin 18: GND  ──┐
-                        ├── momentary pushbutton ── GP14: physical pin 19
-physical pin 19: GP14 ─┘
+physical pin 18: GND   ── shared ground rail
+physical pin 19: GP14  ── time button
+physical pin 20: GP15  ── system-password button
 ```
 
-No external resistor is needed: the program enables GP14's internal pull-up.
-Do not connect the button to 3.3 V or to physical pin 21 (which is GP16).
+No external resistors are needed: the program enables GP14 and GP15's internal
+pull-ups. Do not connect either button to 3.3 V. This uses the host's keyboard
+layout; a US layout is safest if the password includes punctuation.
 
 For future input actions, call `typeText("your message\\n")` from the program.
 It sends ordinary text with a small pacing delay, so longer messages are not

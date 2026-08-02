@@ -27,15 +27,19 @@ const (
 // serial port and HID keyboard. USB serial logging remains available.
 var hidKeyboard = keyboard.Port()
 
-// Wire a normally-open pushbutton between GP14 (physical pin 19) and GND
-// (physical pin 18). The internal pull-up means no external resistor is needed.
-var typeButton = machine.GP14
+// Wire normally-open pushbuttons from these pins to GND. Internal pull-ups
+// mean no external resistors are needed.
+var (
+	timeButton     = machine.GP14 // physical pin 19
+	passwordButton = machine.GP15 // physical pin 20
+)
 
 func main() {
 	logger := slog.New(slog.NewTextHandler(machine.Serial, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	}))
-	typeButton.Configure(machine.PinConfig{Mode: machine.PinInputPullup})
+	timeButton.Configure(machine.PinConfig{Mode: machine.PinInputPullup})
+	passwordButton.Configure(machine.PinConfig{Mode: machine.PinInputPullup})
 
 	// Give `tinygo monitor` time to attach before emitting diagnostics.
 	time.Sleep(2 * time.Second)
@@ -90,8 +94,8 @@ func main() {
 	timeSynchronized <- struct{}{}
 
 	// Wait for presses forever. This starts only after NTP succeeds, so every
-	// message typed by the button contains a valid UTC time.
-	runTypeButton(logger)
+	// timestamp typed by the button contains a valid UTC time.
+	runTypeButtons(logger)
 }
 
 func pumpNetwork(stack *cywnet.Stack, logger *slog.Logger, timeSynchronized <-chan struct{}) {
@@ -147,24 +151,41 @@ func typeText(text string) error {
 	return nil
 }
 
-func runTypeButton(logger *slog.Logger) {
+func buttonPressed(button machine.Pin) bool {
+	if button.Get() {
+		return false
+	}
+
+	time.Sleep(20 * time.Millisecond) // debounce the press
+	return !button.Get()
+}
+
+func waitForButtonRelease(button machine.Pin) {
+	// Holding a button produces only one entry.
+	for !button.Get() {
+		time.Sleep(5 * time.Millisecond)
+	}
+	time.Sleep(20 * time.Millisecond) // debounce the release
+}
+
+func runTypeButtons(logger *slog.Logger) {
 	lastReport := time.Now()
 	for {
-		if !typeButton.Get() { // active-low: button connects GP14 to GND
-			time.Sleep(20 * time.Millisecond) // debounce the button press
-			if !typeButton.Get() {
-				now := time.Now().UTC().Format(time.RFC3339)
-				logger.Info("typing current UTC time", slog.String("utc", now))
-				if err := typeText(now + "\n"); err != nil {
-					logger.Error("type HID time", slog.String("error", err.Error()))
-				}
-
-				// Wait for release, so holding the button produces only one line.
-				for !typeButton.Get() {
-					time.Sleep(5 * time.Millisecond)
-				}
-				time.Sleep(20 * time.Millisecond) // debounce release
+		if buttonPressed(timeButton) { // active-low: button connects GP14 to GND
+			now := time.Now().UTC().Format(time.RFC3339)
+			logger.Info("typing current UTC time", slog.String("utc", now))
+			if err := typeText(now + "\n"); err != nil {
+				logger.Error("type HID time", slog.String("error", err.Error()))
 			}
+			waitForButtonRelease(timeButton)
+		} else if buttonPressed(passwordButton) { // active-low: button connects GP15 to GND
+			// Do not log the password, and do not send Enter: this just fills the
+			// currently focused password field.
+			logger.Info("typing system password")
+			if err := typeText(systemPassword); err != nil {
+				logger.Error("type HID system password", slog.String("error", err.Error()))
+			}
+			waitForButtonRelease(passwordButton)
 		}
 
 		now := time.Now()
