@@ -1,9 +1,9 @@
 # picopass
 
-`picopass` is a toy project that turns a Raspberry Pi Pico 2 W into a physical
-TOTP keyboard. It gets time over Wi-Fi and NTP, then presents itself over USB
-as both a serial port and an HID keyboard. Three physical buttons type the
-current UTC time, a stored password, or a freshly generated TOTP code.
+`picopass` is a TinyGo toy project that turns a Raspberry Pi Pico 2 W into a
+physical TOTP keyboard. It gets time over Wi-Fi and NTP, then presents itself
+over USB as both a serial port and an HID keyboard. Three physical buttons type
+the current UTC time, a stored password, or a freshly generated TOTP code.
 
 ## Not a secure authenticator
 
