@@ -27,8 +27,7 @@ FIDO2/WebAuthn security key.
 
 - Connects to Wi-Fi, obtains an address with DHCP, resolves
   `time.cloudflare.com`, and sets TinyGo's clock with NTP.
-- Keeps its onboard LED blinking until the time sync succeeds, then leaves it
-  solid.
+- Turns its onboard LED solid once the time sync succeeds.
 - Provides a USB serial log and USB HID keyboard at the same time.
 - Types the configured password or a six-digit TOTP code when its corresponding
   button is pressed.
@@ -56,8 +55,7 @@ different button starts a new sequence. After a double press, the next press
 types its usual value again. Each press requires releasing the button first;
 the one-second window is measured between detected presses.
 
-The onboard LED blinks while the program is connecting and getting time, then
-stays solid once NTP synchronization succeeds.
+The onboard LED stays solid once NTP synchronization succeeds.
 
 ### Button wiring
 

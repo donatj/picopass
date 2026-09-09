@@ -26,7 +26,6 @@ const (
 	hostname = "picopass"
 	ntpHost  = "time.cloudflare.com"
 	pollTime = 5 * time.Millisecond
-	ledBlink = 300 * time.Millisecond
 )
 
 // Importing keyboard configures the Pico's USB interface as a composite CDC
@@ -67,10 +66,9 @@ func main() {
 		panic("set up Wi-Fi stack: " + err.Error())
 	}
 
-	// The network device has to be pumped continually in the background. That
-	// loop also blinks the Wi-Fi-chip LED until time synchronization completes.
-	timeSynchronized := make(chan struct{}, 1)
-	go pumpNetwork(stack, logger, timeSynchronized)
+	// The network device has to be pumped continually in the background.
+	setOnboardLED(stack, false, logger)
+	go pumpNetwork(stack)
 
 	lease, err := stack.SetupWithDHCP(cywnet.DHCPConfig{})
 	if err != nil {
@@ -99,39 +97,15 @@ func main() {
 	runtime.AdjustTimeOffset(int64(offset))
 	synchronizedTime := time.Now().UTC().Format(time.RFC3339)
 	logger.Info("time synchronized", slog.String("utc", synchronizedTime))
-	timeSynchronized <- struct{}{}
+	setOnboardLED(stack, true, logger)
 
 	// Wait for presses forever. This starts only after NTP succeeds, so every
 	// timestamp typed by the button contains a valid UTC time.
 	runTypeButtons(logger)
 }
 
-func pumpNetwork(stack *cywnet.Stack, logger *slog.Logger, timeSynchronized <-chan struct{}) {
-	ledOn := false
-	synchronizing := true
-	lastBlink := time.Now()
-	setOnboardLED(stack, false, logger)
-
+func pumpNetwork(stack *cywnet.Stack) {
 	for {
-		select {
-		case <-timeSynchronized:
-			synchronizing = false
-		default:
-		}
-
-		if synchronizing {
-			now := time.Now()
-			if now.Sub(lastBlink) >= ledBlink {
-				ledOn = !ledOn
-				setOnboardLED(stack, ledOn, logger)
-				lastBlink = now
-			}
-		} else if !ledOn {
-			// NTP succeeded: leave the onboard LED solidly on.
-			ledOn = true
-			setOnboardLED(stack, true, logger)
-		}
-
 		sent, received, _ := stack.RecvAndSend()
 		if sent == 0 && received == 0 {
 			time.Sleep(pollTime)
