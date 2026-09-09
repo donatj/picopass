@@ -44,10 +44,16 @@ placeholders to replace. An empty Wi-Fi password selects an open network.
 
 The USB connection now appears as both its normal serial port and a standard
 HID keyboard; no host driver is required. After NTP synchronization, the time
-button types the current UTC time plus Return, while the password button types
+button types the current UTC time without Return, while the password button types
 `systemPassword` exactly as stored, without Return. The TOTP button generates
 and types the current six-digit, 30-second code from `totpSeed`, also without
 Return. The password, seed, and code are never written to the serial log.
+
+Press the same button again within one second to type only Return (`\n`)
+instead of its usual value. This applies to all three buttons. Pressing a
+different button starts a new sequence. After a double press, the next press
+types its usual value again. Each press requires releasing the button first;
+the one-second window is measured between detected presses.
 
 The onboard LED stays solid once NTP synchronization succeeds.
 

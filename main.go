@@ -180,34 +180,40 @@ func waitForButtonRelease(button machine.Pin) {
 
 func runTypeButtons(logger *slog.Logger) {
 	lastReport := time.Now()
+	var lastButton machine.Pin
+	var lastPress time.Time
 	for {
-		if buttonPressed(timeButton) { // active-low: button connects GP14 to GND
-			now := time.Now().UTC().Format(time.RFC3339)
-			logger.Info("typing current UTC time", slog.String("utc", now))
-			if err := typeText(now + "\n"); err != nil {
-				logger.Error("type HID time", slog.String("error", err.Error()))
+		for _, button := range [...]machine.Pin{timeButton, passwordButton, totpButton} {
+			if !buttonPressed(button) {
+				continue
 			}
-			waitForButtonRelease(timeButton)
-		} else if buttonPressed(passwordButton) { // active-low: button connects GP15 to GND
-			// Do not log the password, and do not send Enter: this just fills the
-			// currently focused password field.
-			logger.Info("typing system password")
-			if err := typeText(systemPassword); err != nil {
-				logger.Error("type HID system password", slog.String("error", err.Error()))
-			}
-			waitForButtonRelease(passwordButton)
-		} else if buttonPressed(totpButton) { // active-low: button connects GP16 to GND
-			// Do not log the seed or the short-lived code, and do not send Enter.
-			code, err := generateTOTP(totpSeed, time.Now())
-			if err != nil {
-				logger.Error("generate TOTP", slog.String("error", err.Error()))
+
+			now := time.Now()
+			text := "\n"
+			var err error
+			if button == lastButton && !lastPress.IsZero() && now.Sub(lastPress) < time.Second {
+				lastPress = time.Time{} // The next press starts a new pair.
 			} else {
-				logger.Info("typing current TOTP")
-				if err := typeText(code); err != nil {
-					logger.Error("type HID TOTP", slog.String("error", err.Error()))
+				lastButton, lastPress = button, now
+				switch button {
+				case timeButton:
+					text = now.UTC().Format(time.RFC3339)
+					logger.Info("typing current UTC time", slog.String("utc", text))
+				case passwordButton:
+					text = systemPassword
+					logger.Info("typing system password")
+				case totpButton:
+					text, err = generateTOTP(totpSeed, now)
+					logger.Info("typing current TOTP")
 				}
 			}
-			waitForButtonRelease(totpButton)
+			if err != nil {
+				logger.Error("generate TOTP", slog.String("error", err.Error()))
+			} else if err := typeText(text); err != nil {
+				logger.Error("type HID text", slog.String("error", err.Error()))
+			}
+			waitForButtonRelease(button)
+			break
 		}
 
 		now := time.Now()
