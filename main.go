@@ -210,7 +210,7 @@ func runTypeButtons(logger *slog.Logger) {
 		if buttonPressed(timeButton) { // active-low: button connects GP14 to GND
 			now := time.Now().UTC().Format(time.RFC3339)
 			logger.Info("typing current UTC time", slog.String("utc", now))
-			if err := typeText(now + "\n"); err != nil {
+			if err := typeText(now); err != nil {
 				logger.Error("type HID time", slog.String("error", err.Error()))
 			}
 			waitForButtonRelease(timeButton)
