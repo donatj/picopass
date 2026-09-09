@@ -208,53 +208,38 @@ func runTypeButtons(logger *slog.Logger) {
 	lastReport := time.Now()
 	var lastButton machine.Pin
 	var lastPress time.Time
-	// A completed pair resets the sequence: a third press types a value again.
-	typeReturnOnDoublePress := func(button machine.Pin) bool {
-		now := time.Now()
-		if !lastPress.IsZero() && button == lastButton && now.Sub(lastPress) < time.Second {
-			lastPress = time.Time{}
-			if err := typeText("\n"); err != nil {
-				logger.Error("type HID Return", slog.String("error", err.Error()))
-			}
-			return true
-		}
-		lastButton, lastPress = button, now
-		return false
-	}
 	for {
-		if buttonPressed(timeButton) { // active-low: button connects GP14 to GND
-			if !typeReturnOnDoublePress(timeButton) {
-				now := time.Now().UTC().Format(time.RFC3339)
-				logger.Info("typing current UTC time", slog.String("utc", now))
-				if err := typeText(now); err != nil {
-					logger.Error("type HID time", slog.String("error", err.Error()))
-				}
+		for _, button := range [...]machine.Pin{timeButton, passwordButton, totpButton} {
+			if !buttonPressed(button) {
+				continue
 			}
-			waitForButtonRelease(timeButton)
-		} else if buttonPressed(passwordButton) { // active-low: button connects GP15 to GND
-			if !typeReturnOnDoublePress(passwordButton) {
-				// Do not log the password, and do not send Enter: this just fills the
-				// currently focused password field.
-				logger.Info("typing system password")
-				if err := typeText(systemPassword); err != nil {
-					logger.Error("type HID system password", slog.String("error", err.Error()))
-				}
-			}
-			waitForButtonRelease(passwordButton)
-		} else if buttonPressed(totpButton) { // active-low: button connects GP16 to GND
-			if !typeReturnOnDoublePress(totpButton) {
-				// Do not log the seed or the short-lived code, and do not send Enter.
-				code, err := generateTOTP(totpSeed, time.Now())
-				if err != nil {
-					logger.Error("generate TOTP", slog.String("error", err.Error()))
-				} else {
+
+			now := time.Now()
+			text := "\n"
+			var err error
+			if button == lastButton && !lastPress.IsZero() && now.Sub(lastPress) < time.Second {
+				lastPress = time.Time{} // The next press starts a new pair.
+			} else {
+				lastButton, lastPress = button, now
+				switch button {
+				case timeButton:
+					text = now.UTC().Format(time.RFC3339)
+					logger.Info("typing current UTC time", slog.String("utc", text))
+				case passwordButton:
+					text = systemPassword
+					logger.Info("typing system password")
+				case totpButton:
+					text, err = generateTOTP(totpSeed, now)
 					logger.Info("typing current TOTP")
-					if err := typeText(code); err != nil {
-						logger.Error("type HID TOTP", slog.String("error", err.Error()))
-					}
 				}
 			}
-			waitForButtonRelease(totpButton)
+			if err != nil {
+				logger.Error("generate TOTP", slog.String("error", err.Error()))
+			} else if err := typeText(text); err != nil {
+				logger.Error("type HID text", slog.String("error", err.Error()))
+			}
+			waitForButtonRelease(button)
+			break
 		}
 
 		now := time.Now()
